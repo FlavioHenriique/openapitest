@@ -4,6 +4,15 @@
 
 Transformar o projeto Android `OpenAPITest` em um app de teste com uma única tela de perguntas e respostas, visualmente parecida com um chat. As respostas devem consultar um acervo fixo de documentos (RAG) por meio da OpenAI API.
 
+## Progresso atual
+
+- Fase 1 implementada na `MainActivity` com Compose.
+- Fase 2 implementada: a conversa usa a Responses API, mostra carregamento, respostas e erros com retry.
+- Cada requisição envia somente a pergunta atual; o histórico visível não é enviado. `store=false` é enviado para não persistir a resposta na API.
+- O File Search é ativado automaticamente quando `OPENAI_VECTOR_STORE_ID` está configurado; a preparação do vector store e dos arquivos segue na Fase 3.
+- A chave é lida de `OPENAI_API_KEY` no ambiente do Gradle ou de `local.properties`; o valor real não deve ser versionado.
+- `app:assembleDebug` sincronizou e compilou com sucesso. A chamada real depende de uma chave válida configurada localmente.
+
 ## Decisões já tomadas
 
 - O projeto Android será o cliente HTTP; **não haverá backend próprio**.
@@ -31,22 +40,24 @@ A chave da API não deve ser armazenada em `BuildConfig` no repositório ou hard
 
 ## Fases de implementação
 
-### Fase 1 — Tela de chat
+### Fase 1 — Tela de chat (implementada)
 
-- Substituir o conteúdo inicial atual da `MainActivity` (hoje, Greeting/“Hello Android”) por uma tela Compose de pergunta e resposta.
-- Criar estado vazio, lista de mensagens, balões para usuário e assistente, campo de texto e botão de envio.
-- Mostrar estado de carregamento, impedir envio vazio e apresentar erro com opção de tentar novamente.
-- Fazer o conteúdo rolar para a mensagem mais recente.
-- Manter o histórico somente durante a sessão; não persistir nem enviar o histórico ao modelo.
+- A `MainActivity` abre diretamente a tela Compose de pergunta e resposta.
+- Criados estado vazio, sugestões de pergunta, lista de mensagens, balões para usuário e assistente, campo de texto e botão de envio.
+- O envio local mostra um indicador e uma resposta demonstrativa, sem chamar a OpenAI nesta fase.
+- O envio vazio é desabilitado, a lista rola para a mensagem mais recente e há ação para iniciar um novo chat.
+- O histórico fica apenas em memória e não é enviado ao modelo.
+- O campo de texto ajusta-se ao teclado com suporte a edge-to-edge. Falhas reais da API aparecem com uma ação de retry.
 
-### Fase 2 — Comunicação com a OpenAI
+### Fase 2 — Comunicação com a OpenAI (implementada)
 
-- Implementar uma camada de rede isolada do Compose, chamada pelo ViewModel.
-- Enviar requisições HTTPS para a Responses API usando a chave configurada localmente.
-- Incluir no request a pergunta atual e a ferramenta File Search vinculada ao `OPENAI_VECTOR_STORE_ID`.
-- Extrair e mostrar o texto da resposta.
-- Tratar falhas HTTP, ausência de configuração da chave/ID e problemas de rede.
-- MVP pode usar resposta não transmitida em streaming; streaming pode ser adicionado se necessário.
+- A tela observa estado do `ChatViewModel`; `OpenAiChatRepository` executa a chamada HTTPS fora da thread principal.
+- A chamada usa a Responses API, envia somente a pergunta atual e define `store=false`; não envia histórico nem `previous_response_id`.
+- O File Search é incluído automaticamente quando `OPENAI_VECTOR_STORE_ID` tem valor. Sem ID, o app testa apenas a resposta geral do modelo até a Fase 3 preparar o acervo.
+- A resposta textual é exibida na conversa. A UI mostra carregamento e mensagens de erro com retry.
+- Há mensagens orientadas para chave inválida/ausente, limite ou saldo, indisponibilidade do modelo, conexão e timeout.
+- O modelo configurável por `OPENAI_MODEL` usa `gpt-6.1-sol` como padrão. A resposta não usa streaming.
+- O manifesto declara permissão de Internet. O build `app:assembleDebug` concluiu com sucesso; a chamada remota precisa de uma chave válida para ser exercitada.
 
 ### Fase 3 — Acervo RAG fixo
 
@@ -72,7 +83,7 @@ O app não seleciona, envia, cria, remove ou atualiza arquivos. Mudanças futura
 
 - A Activity launcher abre diretamente a tela de chat.
 - É possível enviar uma pergunta e ver a resposta da OpenAI.
-- File Search consulta sempre o Vector Store fixo.
+- File Search consulta o Vector Store fixo quando `OPENAI_VECTOR_STORE_ID` está configurado.
 - O app não oferece fluxo de seleção ou upload de arquivos.
 - Cada requisição inclui somente a pergunta atual, sem histórico.
 - A configuração ausente e falhas de rede/API são apresentadas de forma compreensível.
@@ -80,8 +91,8 @@ O app não seleciona, envia, cria, remove ou atualiza arquivos. Mudanças futura
 
 ## Pendências para decidir durante a implementação
 
-- Modelo OpenAI a usar; manter configurável para troca simples.
-- Se a resposta deve ser mostrada com streaming (recomendação inicial: não, para simplificar o MVP).
+- O padrão atual é `gpt-6.1-sol`; pode ser trocado via `OPENAI_MODEL`.
+- Streaming está desativado no MVP.
 - Formato visual das citações/fontes (recomendação: nome do arquivo abaixo da resposta quando disponível).
 - Se o histórico em memória deve ser limpo ao fechar/reabrir o app (recomendação: sim).
 

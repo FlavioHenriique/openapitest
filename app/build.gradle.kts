@@ -1,8 +1,33 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
 }
+
+val localProperties = Properties().apply {
+    rootProject.file("local.properties")
+        .takeIf { it.isFile }
+        ?.inputStream()
+        ?.use(::load)
+}
+
+fun String.asBuildConfigString(): String =
+    "\"" + replace("\\", "\\\\")
+        .replace("\"", "\\\"")
+        .replace("\n", "\\n")
+        .replace("\r", "\\r") + "\""
+
+val openAiApiKey = providers.environmentVariable("OPENAI_API_KEY").orNull
+    ?: localProperties.getProperty("OPENAI_API_KEY")
+    ?: ""
+val openAiModel = providers.environmentVariable("OPENAI_MODEL").orNull
+    ?: localProperties.getProperty("OPENAI_MODEL")
+    ?: "gpt-6.1-sol"
+val openAiVectorStoreId = providers.environmentVariable("OPENAI_VECTOR_STORE_ID").orNull
+    ?: localProperties.getProperty("OPENAI_VECTOR_STORE_ID")
+    ?: ""
 
 android {
     namespace = "io.github.openapitest"
@@ -14,6 +39,10 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
+
+        buildConfigField("String", "OPENAI_API_KEY", openAiApiKey.asBuildConfigString())
+        buildConfigField("String", "OPENAI_MODEL", openAiModel.asBuildConfigString())
+        buildConfigField("String", "OPENAI_VECTOR_STORE_ID", openAiVectorStoreId.asBuildConfigString())
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -36,6 +65,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -43,6 +73,7 @@ dependencies {
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)
