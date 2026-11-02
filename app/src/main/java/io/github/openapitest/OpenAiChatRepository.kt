@@ -14,22 +14,36 @@ import java.net.UnknownHostException
 class OpenAiChatRepository(
     private val apiKey: String,
     private val model: String,
-    private val vectorStoreId: String
+    private val vectorStoreId: String,
+    private val instructions: String
 ) {
-    suspend fun answer(question: String): String = withContext(Dispatchers.IO) {
+    suspend fun answer(messages: List<ChatMessage>): String = withContext(Dispatchers.IO) {
+        if (messages.isEmpty()) {
+            throw ChatApiException("A conversa não contém mensagens para enviar.")
+        }
         if (apiKey.isBlank()) {
             throw ChatApiException(
                 "Configure OPENAI_API_KEY no ambiente ou em local.properties e reconstrua o app."
             )
         }
+        val input = JSONArray().apply {
+            messages.forEach { message ->
+                val role = when (message.role) {
+                    ChatMessageRole.USER -> "user"
+                    ChatMessageRole.ASSISTANT -> "assistant"
+                }
+                put(
+                    JSONObject()
+                        .put("role", role)
+                        .put("content", message.text)
+                )
+            }
+        }
 
         val requestBody = JSONObject()
             .put("model", model)
-            .put(
-                "instructions",
-                "Responda em português, com clareza. Considere somente a pergunta recebida nesta chamada."
-            )
-            .put("input", question)
+            .put("instructions", instructions)
+            .put("input", input)
             .put("store", false)
 
         if (vectorStoreId.isNotBlank()) {

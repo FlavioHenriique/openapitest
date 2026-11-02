@@ -189,13 +189,13 @@ private fun ChatHeader(
                 .padding(start = 12.dp)
         ) {
             Text(
-                text = "Perguntas e respostas",
+                text = "Assistente virtual - Imune 360",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onBackground
             )
             Text(
-                text = "Assistente sobre documentos",
+                text = "Dúvidas rápidas sobre a imune",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -247,13 +247,14 @@ private fun EmptyChatState(
         Spacer(modifier = Modifier.height(8.dp))
 
         Text(
-            text = "Faça uma pergunta sobre o tema e os documentos do seu acervo.",
+            text = "Estamos à disposição para tirar todas as suas dúvidas!",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
         Spacer(modifier = Modifier.height(24.dp))
 
+        /*
         Column(
             modifier = Modifier.widthIn(max = 520.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -269,7 +270,7 @@ private fun EmptyChatState(
                     modifier = Modifier.fillMaxWidth()
                 )
             }
-        }
+        }*/
     }
 }
 

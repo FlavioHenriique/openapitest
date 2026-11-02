@@ -1,6 +1,7 @@
 package io.github.openapitest
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -26,50 +27,62 @@ data class ChatUiState(
     val errorMessage: String? = null
 )
 
-class ChatViewModel : ViewModel() {
+class ChatViewModel(application: Application) : AndroidViewModel(application) {
+    private val instructions = application.resources.openRawResource(
+        R.raw.imune_360_assistant_prompt
+    ).bufferedReader().use { it.readText() }
+
     private val repository = OpenAiChatRepository(
         apiKey = BuildConfig.OPENAI_API_KEY,
         model = BuildConfig.OPENAI_MODEL,
-        vectorStoreId = BuildConfig.OPENAI_VECTOR_STORE_ID
+        vectorStoreId = BuildConfig.OPENAI_VECTOR_STORE_ID,
+        instructions = instructions
     )
 
     private val mutableUiState = MutableStateFlow(ChatUiState())
     val uiState = mutableUiState.asStateFlow()
 
     private var requestJob: Job? = null
-    private var failedQuestion: String? = null
+    private var failedConversation: List<ChatMessage>? = null
+    private var conversationGeneration: Long = 0
 
     fun sendMessage(question: String) {
         val trimmedQuestion = question.trim()
         if (trimmedQuestion.isEmpty() || mutableUiState.value.isLoading) return
 
-        failedQuestion = trimmedQuestion
+        val conversation = mutableUiState.value.messages + ChatMessage(
+            role = ChatMessageRole.USER,
+            text = trimmedQuestion
+        )
+        failedConversation = conversation
         mutableUiState.value = mutableUiState.value.copy(
-            messages = mutableUiState.value.messages + ChatMessage(
-                role = ChatMessageRole.USER,
-                text = trimmedQuestion
-            ),
+            messages = conversation,
             isLoading = true,
             errorMessage = null
         )
-        requestAnswer(trimmedQuestion)
+        requestAnswer(conversation)
     }
 
     fun retryLastRequest() {
-        val question = failedQuestion ?: return
+        val conversation = failedConversation ?: return
         if (!mutableUiState.value.isLoading) {
-            requestAnswer(question)
+            requestAnswer(conversation)
         }
     }
 
     fun clearConversation() {
+        conversationGeneration += 1
         requestJob?.cancel()
         requestJob = null
-        failedQuestion = null
+        failedConversation = null
         mutableUiState.value = ChatUiState()
     }
 
-    private fun requestAnswer(question: String) {
+    private fun requestAnswer(conversation: List<ChatMessage>) {
+        val conversationSnapshot = conversation.toList()
+        if (conversationSnapshot.lastOrNull()?.role != ChatMessageRole.USER) return
+
+        val requestGeneration = conversationGeneration
         requestJob?.cancel()
         mutableUiState.value = mutableUiState.value.copy(
             isLoading = true,
@@ -78,8 +91,10 @@ class ChatViewModel : ViewModel() {
 
         requestJob = viewModelScope.launch {
             try {
-                val answer = repository.answer(question)
-                failedQuestion = null
+                val answer = repository.answer(conversationSnapshot)
+                if (requestGeneration != conversationGeneration) return@launch
+
+                failedConversation = null
                 mutableUiState.value = mutableUiState.value.copy(
                     messages = mutableUiState.value.messages + ChatMessage(
                         role = ChatMessageRole.ASSISTANT,
@@ -92,7 +107,9 @@ class ChatViewModel : ViewModel() {
             } catch (exception: CancellationException) {
                 throw exception
             } catch (exception: Exception) {
-                failedQuestion = question
+                if (requestGeneration != conversationGeneration) return@launch
+
+                failedConversation = conversationSnapshot
                 mutableUiState.value = mutableUiState.value.copy(
                     isLoading = false,
                     errorMessage = exception.message

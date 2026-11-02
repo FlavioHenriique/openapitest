@@ -6,9 +6,10 @@ Aplicativo Android de teste para fazer perguntas à OpenAI API em uma interface 
 
 - A tela de chat é feita com Jetpack Compose.
 - O app envia cada pergunta diretamente à Responses API da OpenAI.
-- Cada chamada contém somente a pergunta atual; o histórico exibido na tela não é enviado como contexto.
+- Cada chamada envia o histórico do chat atual junto com a nova pergunta para manter o contexto.
+- O histórico fica apenas em memória e é apagado ao tocar em “Novo chat”; store=false impede o armazenamento da resposta pela API.
+- Como o histórico inteiro é reenviado a cada chamada, conversas mais longas usam mais tokens.
 - Quando há um Vector Store configurado, a chamada habilita File Search para buscar trechos relevantes nos documentos enviados à plataforma OpenAI.
-- A conversa fica apenas em memória no app.
 
 ## Configuração local
 

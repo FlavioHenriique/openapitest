@@ -8,8 +8,8 @@ Transformar o projeto Android `OpenAPITest` em um app de teste com uma única te
 
 - Fase 1 implementada na `MainActivity` com Compose.
 - Fase 2 implementada: a conversa usa a Responses API, mostra carregamento, respostas e erros com retry.
-- Cada requisição envia somente a pergunta atual; o histórico visível não é enviado. `store=false` é enviado para não persistir a resposta na API.
-- O File Search é ativado automaticamente quando `OPENAI_VECTOR_STORE_ID` está configurado; a preparação do vector store e dos arquivos segue na Fase 3.
+- Cada requisição envia o histórico de mensagens do chat atual junto com a nova pergunta. O histórico fica em memória e é apagado ao iniciar um novo chat; store=false continua desativando o armazenamento das respostas na API.
+- Fase 3 concluída: o File Search usa o Vector Store fixo configurado por `OPENAI_VECTOR_STORE_ID`, com os arquivos do acervo indexados.
 - A chave é lida de `OPENAI_API_KEY` no ambiente do Gradle ou de `local.properties`; o valor real não deve ser versionado.
 - `app:assembleDebug` sincronizou e compilou com sucesso. A chamada real depende de uma chave válida configurada localmente.
 
@@ -21,7 +21,7 @@ Transformar o projeto Android `OpenAPITest` em um app de teste com uma única te
 - O uso é de teste pessoal, não de distribuição comercial. A chave compilada dentro do APK poderá ser extraída; esse risco foi aceito pelo usuário.
 - Não haverá seletor de arquivos nem tela para gerenciar documentos dentro do app.
 - O corpus RAG será fixo e preparado previamente na OpenAI Platform.
-- Cada envio à API conterá somente a pergunta atual. Não enviar perguntas/respostas anteriores como contexto.
+- Cada envio à API conterá as mensagens anteriores do chat atual e a nova pergunta como contexto. O botão “Novo chat” apaga o histórico local e cancela a requisição ativa.
 - O CSV será convertido para um formato textual aceito (por exemplo, Markdown, TXT ou JSON) antes de ser adicionado ao acervo.
 - A Activity de entrada deve abrir diretamente o chat.
 
@@ -34,7 +34,7 @@ Compose UI -> ViewModel -> Repository/cliente HTTP -> OpenAI Responses API
                                                             -> Vector Store fixo
 ```
 
-A tela pode manter e mostrar o histórico em memória para a experiência de chat, mas cada chamada independente envia apenas a pergunta atual e referencia o mesmo vector store. Não haverá memória conversacional no modelo.
+A tela mantém o histórico do chat em memória e o envia junto a cada chamada para dar contexto ao modelo. O mesmo Vector Store é consultado a cada envio. “Novo chat” limpa o histórico local; nada do histórico é salvo no armazenamento do app.
 
 A chave da API não deve ser armazenada em `BuildConfig` no repositório ou hardcoded. Para uso local, o Gradle pode lê-la de `OPENAI_API_KEY` (ou configuração local não versionada) e gerar o valor necessário ao app no build. O ID não secreto do acervo será configurável localmente como `OPENAI_VECTOR_STORE_ID`.
 
@@ -46,13 +46,13 @@ A chave da API não deve ser armazenada em `BuildConfig` no repositório ou hard
 - Criados estado vazio, sugestões de pergunta, lista de mensagens, balões para usuário e assistente, campo de texto e botão de envio.
 - O envio local mostra um indicador e uma resposta demonstrativa, sem chamar a OpenAI nesta fase.
 - O envio vazio é desabilitado, a lista rola para a mensagem mais recente e há ação para iniciar um novo chat.
-- O histórico fica apenas em memória e não é enviado ao modelo.
+- Na Fase 1, o histórico foi mantido em memória para exibição; o envio como contexto foi implementado na Fase 2.
 - O campo de texto ajusta-se ao teclado com suporte a edge-to-edge. Falhas reais da API aparecem com uma ação de retry.
 
 ### Fase 2 — Comunicação com a OpenAI (implementada)
 
 - A tela observa estado do `ChatViewModel`; `OpenAiChatRepository` executa a chamada HTTPS fora da thread principal.
-- A chamada usa a Responses API, envia somente a pergunta atual e define `store=false`; não envia histórico nem `previous_response_id`.
+- A chamada usa a Responses API, envia as mensagens do chat atual como histórico e define store=false. O contexto é gerenciado manualmente pelo app, sem previous_response_id.
 - O File Search é incluído automaticamente quando `OPENAI_VECTOR_STORE_ID` tem valor. Sem ID, o app testa apenas a resposta geral do modelo até a Fase 3 preparar o acervo.
 - A resposta textual é exibida na conversa. A UI mostra carregamento e mensagens de erro com retry.
 - Há mensagens orientadas para chave inválida/ausente, limite ou saldo, indisponibilidade do modelo, conexão e timeout.
@@ -76,7 +76,7 @@ O app não seleciona, envia, cria, remove ou atualiza arquivos. Mudanças futura
 - Sincronizar e compilar o projeto.
 - Executar o app em emulador ou dispositivo conectado.
 - Testar uma pergunta respondida pelo corpus, outra sem resposta nos documentos, estado de carregamento e erros de rede/configuração.
-- Confirmar que chamadas consecutivas não enviam o histórico anterior.
+- Confirmar que chamadas consecutivas incluem o histórico do chat e que “Novo chat” o apaga.
 - Se disponível na resposta, mostrar a origem/citação do arquivo consultado.
 
 ## Critérios de conclusão
@@ -85,7 +85,7 @@ O app não seleciona, envia, cria, remove ou atualiza arquivos. Mudanças futura
 - É possível enviar uma pergunta e ver a resposta da OpenAI.
 - File Search consulta o Vector Store fixo quando `OPENAI_VECTOR_STORE_ID` está configurado.
 - O app não oferece fluxo de seleção ou upload de arquivos.
-- Cada requisição inclui somente a pergunta atual, sem histórico.
+- Cada requisição inclui o histórico do chat atual e a pergunta nova; “Novo chat” limpa o contexto.
 - A configuração ausente e falhas de rede/API são apresentadas de forma compreensível.
 - A chave real não aparece em arquivos versionados do projeto.
 
